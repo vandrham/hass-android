@@ -73,6 +73,7 @@ dependencies {
     api(libs.retrofit)
     implementation(libs.converter.jackson)
     implementation(libs.okhttp)
+    implementation(libs.hivemq.mqtt.client)
     implementation(libs.logging.interceptor)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.android.beacon.library)

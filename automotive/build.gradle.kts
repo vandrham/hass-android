@@ -91,6 +91,13 @@ android {
         targetCompatibility(libs.versions.javaVersion.get())
     }
 
+    // exclude netty version properties file packaged with hivemq
+    packaging {
+        resources {
+            excludes += listOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
+        }
+    }
+
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release_keystore.keystore")

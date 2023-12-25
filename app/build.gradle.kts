@@ -56,6 +56,13 @@ android {
         targetCompatibility(libs.versions.javaVersion.get())
     }
 
+    // exclude netty version properties file packaged with hivemq
+    packaging {
+        resources {
+            excludes += listOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
+        }
+    }
+
     firebaseAppDistribution {
         serviceCredentialsFile = "firebaseAppDistributionServiceCredentialsFile.json"
         releaseNotesFile = "./app/build/outputs/changelogBeta"

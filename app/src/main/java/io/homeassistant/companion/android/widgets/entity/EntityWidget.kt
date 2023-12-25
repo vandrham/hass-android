@@ -46,6 +46,7 @@ class EntityWidget : BaseWidgetProvider() {
         internal const val EXTRA_LABEL = "EXTRA_LABEL"
         internal const val EXTRA_TEXT_SIZE = "EXTRA_TEXT_SIZE"
         internal const val EXTRA_STATE_SEPARATOR = "EXTRA_STATE_SEPARATOR"
+        internal const val EXTRA_MQTT_TOPIC = "EXTRA_MQTT_TOPIC"
         internal const val EXTRA_ATTRIBUTE_SEPARATOR = "EXTRA_ATTRIBUTE_SEPARATOR"
         internal const val EXTRA_TAP_ACTION = "EXTRA_TAP_ACTION"
         internal const val EXTRA_BACKGROUND_TYPE = "EXTRA_BACKGROUND_TYPE"
@@ -77,6 +78,7 @@ class EntityWidget : BaseWidgetProvider() {
                 val label: String? = widget.label
                 val textSize: Float = widget.textSize
                 val stateSeparator: String = widget.stateSeparator
+                val mqttTopic: String = widget.mqttTopic
                 val attributeSeparator: String = widget.attributeSeparator
 
                 // Theming
@@ -208,6 +210,7 @@ class EntityWidget : BaseWidgetProvider() {
         val labelSelection: String? = extras.getString(EXTRA_LABEL)
         val textSizeSelection: String? = extras.getString(EXTRA_TEXT_SIZE)
         val stateSeparatorSelection: String? = extras.getString(EXTRA_STATE_SEPARATOR)
+        val mqttTopicSelection: String? = extras.getString(EXTRA_MQTT_TOPIC)
         val attributeSeparatorSelection: String? = extras.getString(EXTRA_ATTRIBUTE_SEPARATOR)
         val tapActionSelection: WidgetTapAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             extras.getSerializable(EXTRA_TAP_ACTION, WidgetTapAction::class.java)
@@ -244,6 +247,7 @@ class EntityWidget : BaseWidgetProvider() {
                     labelSelection,
                     textSizeSelection?.toFloatOrNull() ?: 30F,
                     stateSeparatorSelection ?: "",
+                    mqttTopicSelection ?: "",
                     attributeSeparatorSelection ?: "",
                     tapActionSelection,
                     staticWidgetDao.get(appWidgetId)?.lastUpdate ?: "",

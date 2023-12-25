@@ -20,6 +20,8 @@ data class StaticWidgetEntity(
     val textSize: Float = 30F,
     @ColumnInfo(name = "state_separator")
     val stateSeparator: String = "",
+    @ColumnInfo(name = "mqtt_topic", defaultValue = "")
+    val mqttTopic: String = "",
     @ColumnInfo(name = "attribute_separator")
     val attributeSeparator: String = "",
     @ColumnInfo(name = "tap_action", defaultValue = "REFRESH")

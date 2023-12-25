@@ -142,6 +142,7 @@ class EntityWidgetConfigureActivity : BaseWidgetConfigureActivity() {
             binding.label.setText(staticWidget.label)
             binding.textSize.setText(staticWidget.textSize.toInt().toString())
             binding.stateSeparator.setText(staticWidget.stateSeparator)
+            binding.mqttTopic.setText(staticWidget.mqttTopic)
             val entity = runBlocking {
                 try {
                     serverManager.integrationRepository(staticWidget.serverId).getEntity(staticWidget.entityId)
@@ -336,6 +337,11 @@ class EntityWidgetConfigureActivity : BaseWidgetConfigureActivity() {
             intent.putExtra(
                 EntityWidget.EXTRA_STATE_SEPARATOR,
                 binding.stateSeparator.text.toString()
+            )
+
+            intent.putExtra(
+                EntityWidget.EXTRA_MQTT_TOPIC,
+                binding.mqttTopic.text.toString()
             )
 
             if (appendAttributes) {

@@ -151,8 +151,9 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
                                 onMqttMessage(context, id, String(msg.payloadAsBytes))
                             }
                             .send()
-                        try { awaitCancellation() }
-                        finally {
+                        try {
+                            awaitCancellation()
+                        } finally {
                             mqttClient.unsubscribeWith().topicFilter(topic).send()
                         }
                     }
@@ -222,5 +223,4 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
     abstract fun saveEntityConfiguration(context: Context, extras: Bundle?, appWidgetId: Int)
     abstract suspend fun onEntityStateChanged(context: Context, appWidgetId: Int, entity: Entity<*>)
     abstract fun onMqttMessage(context: Context, appWidgetId: Int, message: String)
-
 }

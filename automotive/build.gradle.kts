@@ -182,6 +182,7 @@ dependencies {
 
     implementation(libs.jackson.module.kotlin)
     implementation(libs.okhttp)
+    implementation(libs.hivemq.mqtt.client)
     implementation(libs.picasso)
 
     "fullImplementation"(libs.play.services.location)

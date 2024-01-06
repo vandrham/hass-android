@@ -97,7 +97,7 @@ import io.homeassistant.companion.android.common.R as commonR
         Server::class,
         Setting::class
     ],
-    version = 45,
+    version = 46,
     autoMigrations = [
         AutoMigration(from = 24, to = 25),
         AutoMigration(from = 25, to = 26),
@@ -118,7 +118,8 @@ import io.homeassistant.companion.android.common.R as commonR
         AutoMigration(from = 41, to = 42),
         AutoMigration(from = 42, to = 43),
         AutoMigration(from = 43, to = 44),
-        AutoMigration(from = 44, to = 45)
+        AutoMigration(from = 44, to = 45),
+        AutoMigration(from = 45, to = 46)
     ]
 )
 @TypeConverters(
@@ -193,7 +194,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_21_22,
                     MIGRATION_22_23,
                     MIGRATION_23_24,
-                    Migration40to41(context.assets)
+                    Migration40to41(context.assets),
+                    MIGRATION_45_46
                 )
                 .fallbackToDestructiveMigration()
                 .build()
@@ -549,6 +551,12 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_23_24 = object : Migration(23, 24) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL("ALTER TABLE `settings` ADD `sensorUpdateFrequency` TEXT NOT NULL DEFAULT 'NORMAL'")
+            }
+        }
+
+        private val MIGRATION_45_46 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `static_widget` ADD `mqtt_topic` TEXT NOT NULL DEFAULT ''")
             }
         }
 

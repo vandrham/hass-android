@@ -8,12 +8,14 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.homeassistant.companion.android.common.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.jackson.JacksonConverterFactory
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -29,6 +31,7 @@ class HomeAssistantApis @Inject constructor(
         private const val CALL_TIMEOUT = 30L
         private const val READ_TIMEOUT = 30L
     }
+
     private fun configureOkHttpClient(builder: OkHttpClient.Builder): OkHttpClient.Builder {
         if (BuildConfig.DEBUG) {
             builder.addInterceptor(
@@ -82,4 +85,19 @@ class HomeAssistantApis @Inject constructor(
         .build()
 
     val okHttpClient = configureOkHttpClient(OkHttpClient.Builder()).build()
+
+    val mqttClient = Mqtt5Client.builder()
+        .identifier(UUID.randomUUID().toString())
+        .serverHost(BuildConfig.MQTT_BROKER)
+        .serverPort(BuildConfig.MQTT_PORT)
+        .automaticReconnectWithDefaultConfig()
+        .apply {
+            if (BuildConfig.MQTT_USERNAME.isNotEmpty() && BuildConfig.MQTT_PASSWORD.isNotEmpty()) {
+                simpleAuth()
+                    .username(BuildConfig.MQTT_USERNAME)
+                    .password(BuildConfig.MQTT_PASSWORD.toByteArray())
+                    .applySimpleAuth()
+            }
+        }
+        .buildAsync()
 }

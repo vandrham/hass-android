@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.getSystemService
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -52,6 +53,11 @@ abstract class DataModule {
         @Singleton
         fun providesOkHttpClient(homeAssistantApis: HomeAssistantApis): OkHttpClient =
             homeAssistantApis.okHttpClient
+
+        @Provides
+        @Singleton
+        fun providesMqttClient(homeAssistantApis: HomeAssistantApis): Mqtt5AsyncClient =
+            homeAssistantApis.mqttClient
 
         @Provides
         @Named("session")

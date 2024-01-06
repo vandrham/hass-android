@@ -8,6 +8,10 @@ plugins {
 
 val homeAssistantAndroidPushUrl: String by project
 val homeAssistantAndroidRateLimitUrl: String by project
+val mqttServerHost: String by project
+val mqttServerPort: String by project
+val mqttUsername: String by project
+val mqttPassword: String by project
 
 val versionName = project.version.toString()
 val versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
@@ -21,6 +25,10 @@ android {
         minSdk = libs.versions.androidSdk.min.get().toInt()
         buildConfigField("String", "PUSH_URL", "\"$homeAssistantAndroidPushUrl\"")
         buildConfigField("String", "RATE_LIMIT_URL", "\"$homeAssistantAndroidRateLimitUrl\"")
+        buildConfigField("String", "MQTT_BROKER", "\"$mqttServerHost\"")
+        buildConfigField("int", "MQTT_PORT", mqttServerPort)
+        buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
+        buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
         buildConfigField("String", "VERSION_NAME", "\"$versionName-$versionCode\"")
 
         ksp {
@@ -73,6 +81,7 @@ dependencies {
     api(libs.retrofit)
     implementation(libs.converter.jackson)
     implementation(libs.okhttp)
+    implementation(libs.hivemq.mqtt.client)
     implementation(libs.logging.interceptor)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.android.beacon.library)

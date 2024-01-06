@@ -46,6 +46,7 @@ class EntityWidget : BaseWidgetProvider() {
         internal const val EXTRA_LABEL = "EXTRA_LABEL"
         internal const val EXTRA_TEXT_SIZE = "EXTRA_TEXT_SIZE"
         internal const val EXTRA_STATE_SEPARATOR = "EXTRA_STATE_SEPARATOR"
+        internal const val EXTRA_MQTT_TOPIC = "EXTRA_MQTT_TOPIC"
         internal const val EXTRA_ATTRIBUTE_SEPARATOR = "EXTRA_ATTRIBUTE_SEPARATOR"
         internal const val EXTRA_TAP_ACTION = "EXTRA_TAP_ACTION"
         internal const val EXTRA_BACKGROUND_TYPE = "EXTRA_BACKGROUND_TYPE"
@@ -143,6 +144,9 @@ class EntityWidget : BaseWidgetProvider() {
         return views
     }
 
+    override fun getWidgetMqttTopic(appWidgetId: Int): String? =
+        staticWidgetDao.get(appWidgetId)?.mqttTopic
+
     override suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>> =
         staticWidgetDao.getAll().associate { it.id to (it.serverId to listOf(it.entityId)) }
 
@@ -208,6 +212,7 @@ class EntityWidget : BaseWidgetProvider() {
         val labelSelection: String? = extras.getString(EXTRA_LABEL)
         val textSizeSelection: String? = extras.getString(EXTRA_TEXT_SIZE)
         val stateSeparatorSelection: String? = extras.getString(EXTRA_STATE_SEPARATOR)
+        val mqttTopicSelection: String? = extras.getString(EXTRA_MQTT_TOPIC)
         val attributeSeparatorSelection: String? = extras.getString(EXTRA_ATTRIBUTE_SEPARATOR)
         val tapActionSelection: WidgetTapAction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             extras.getSerializable(EXTRA_TAP_ACTION, WidgetTapAction::class.java)
@@ -244,6 +249,7 @@ class EntityWidget : BaseWidgetProvider() {
                     labelSelection,
                     textSizeSelection?.toFloatOrNull() ?: 30F,
                     stateSeparatorSelection ?: "",
+                    mqttTopicSelection ?: "",
                     attributeSeparatorSelection ?: "",
                     tapActionSelection,
                     staticWidgetDao.get(appWidgetId)?.lastUpdate ?: "",
@@ -260,6 +266,25 @@ class EntityWidget : BaseWidgetProvider() {
         widgetScope?.launch {
             val views = getWidgetRemoteViews(context, appWidgetId, entity as Entity<Map<String, Any>>)
             AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
+        }
+    }
+
+    override fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
+        widgetScope?.launch {
+            staticWidgetDao.updateWidgetLastUpdate(
+                appWidgetId,
+                message
+            )
+            staticWidgetDao.get(appWidgetId)?.apply {
+                val useDynamicColors = backgroundType == WidgetBackgroundType.DYNAMICCOLOR && DynamicColors.isDynamicColorAvailable()
+                val views = RemoteViews(context.packageName, if (useDynamicColors) R.layout.widget_static_wrapper_dynamiccolor else R.layout.widget_static_wrapper_default).apply {
+                    setTextViewText(
+                        R.id.widgetText,
+                        ResolvedText(message).text
+                    )
+                }
+                AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
+            }
         }
     }
 

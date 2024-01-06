@@ -403,6 +403,10 @@ class MediaPlayerControlsWidget : BaseWidgetProvider() {
         }
     }
 
+    override fun getWidgetMqttTopic(appWidgetId: Int): String? {
+        return null
+    }
+
     override suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>> =
         mediaPlayCtrlWidgetDao.getAll().associate { it.id to (it.serverId to it.entityId.split(",")) }
 
@@ -516,6 +520,9 @@ class MediaPlayerControlsWidget : BaseWidgetProvider() {
                 AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
             }
         }
+    }
+
+    override fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
     }
 
     private fun callPreviousTrackService(context: Context, appWidgetId: Int) {

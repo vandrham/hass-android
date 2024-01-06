@@ -78,7 +78,6 @@ class EntityWidget : BaseWidgetProvider() {
                 val label: String? = widget.label
                 val textSize: Float = widget.textSize
                 val stateSeparator: String = widget.stateSeparator
-                val mqttTopic: String = widget.mqttTopic
                 val attributeSeparator: String = widget.attributeSeparator
 
                 // Theming
@@ -144,6 +143,9 @@ class EntityWidget : BaseWidgetProvider() {
 
         return views
     }
+
+    override fun getWidgetMqttTopic(appWidgetId: Int): String? =
+        staticWidgetDao.get(appWidgetId)?.mqttTopic
 
     override suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>> =
         staticWidgetDao.getAll().associate { it.id to (it.serverId to listOf(it.entityId)) }
@@ -264,6 +266,25 @@ class EntityWidget : BaseWidgetProvider() {
         widgetScope?.launch {
             val views = getWidgetRemoteViews(context, appWidgetId, entity as Entity<Map<String, Any>>)
             AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
+        }
+    }
+
+    override fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
+        widgetScope?.launch {
+            staticWidgetDao.updateWidgetLastUpdate(
+                appWidgetId,
+                message
+            )
+            staticWidgetDao.get(appWidgetId)?.apply {
+                val useDynamicColors = backgroundType == WidgetBackgroundType.DYNAMICCOLOR && DynamicColors.isDynamicColorAvailable()
+                val views = RemoteViews(context.packageName, if (useDynamicColors) R.layout.widget_static_wrapper_dynamiccolor else R.layout.widget_static_wrapper_default).apply {
+                    setTextViewText(
+                        R.id.widgetText,
+                        ResolvedText(message).text
+                    )
+                }
+                AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
+            }
         }
     }
 

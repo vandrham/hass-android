@@ -1,0 +1,21 @@
+name: Android build
+
+on:
+  push:
+    branches: [ "mqtt" ]
+
+jobs:
+  assemble:
+    name: Assemble release apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-build-env
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Show available tasks
+        run: ./gradlew tasks

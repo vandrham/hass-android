@@ -6,6 +6,11 @@ plugins {
 val homeAssistantAndroidPushUrl: String by project
 val homeAssistantAndroidRateLimitUrl: String by project
 
+val mqttServerHost: String by project
+val mqttServerPort: String by project
+val mqttUsername: String by project
+val mqttPassword: String by project
+
 val versionName = project.version.toString()
 val versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
 
@@ -15,6 +20,10 @@ android {
     defaultConfig {
         buildConfigField("String", "PUSH_URL", "\"$homeAssistantAndroidPushUrl\"")
         buildConfigField("String", "RATE_LIMIT_URL", "\"$homeAssistantAndroidRateLimitUrl\"")
+        buildConfigField("String", "MQTT_BROKER", "\"$mqttServerHost\"")
+        buildConfigField("int", "MQTT_PORT", mqttServerPort)
+        buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
+        buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
         buildConfigField("String", "VERSION_NAME", "\"$versionName-$versionCode\"")
     }
 }
@@ -61,4 +70,6 @@ dependencies {
     // This fix an issue: provided Metadata instance has version 2.1.0, while maximum supported version is 2.0.0. To support newer versions, update the kotlinx-metadata-jvm library
     lintChecks(libs.androidx.runtime.lint)
     implementation(platform(libs.compose.bom))
+
+    implementation(libs.hivemq.mqtt.client)
 }

@@ -4,10 +4,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.webkit.CookieManager
+import com.hivemq.client.mqtt.mqtt5.Mqtt5Client
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.homeassistant.companion.android.common.BuildConfig
 import io.homeassistant.companion.android.common.util.kotlinJsonMapper
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 import javax.inject.Inject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -78,4 +80,19 @@ class HomeAssistantApis @Inject constructor(
         .build()
 
     val okHttpClient = configureOkHttpClient(OkHttpClient.Builder()).build()
+
+    val mqttClient = Mqtt5Client.builder()
+        .identifier(UUID.randomUUID().toString())
+        .serverHost(BuildConfig.MQTT_BROKER)
+        .serverPort(BuildConfig.MQTT_PORT)
+        .automaticReconnectWithDefaultConfig()
+        .apply {
+            if (BuildConfig.MQTT_USERNAME.isNotEmpty() && BuildConfig.MQTT_PASSWORD.isNotEmpty()) {
+                simpleAuth()
+                    .username(BuildConfig.MQTT_USERNAME)
+                    .password(BuildConfig.MQTT_PASSWORD.toByteArray())
+                    .applySimpleAuth()
+            }
+        }
+        .buildAsync()
 }

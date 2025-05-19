@@ -42,6 +42,13 @@ android {
         releaseNotesFile = "./app/build/outputs/changelogBeta"
         groups = "continuous-deployment"
     }
+
+    // exclude netty version properties file packaged with hivemq
+    packaging {
+        resources {
+            excludes += listOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
+        }
+    }
 }
 
 dependencies {

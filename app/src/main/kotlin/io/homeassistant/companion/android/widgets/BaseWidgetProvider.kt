@@ -142,23 +142,32 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
         }
         val widgetsWithMqttTopic = allWidgets.filter { !getWidgetMqttTopic(it.key).isNullOrEmpty() }
         if (widgetsWithMqttTopic.isNotEmpty()) {
+            Timber.d("Checking if mqtt is connected")
             if (!mqttClient.state.isConnectedOrReconnect) {
+                Timber.d("Connecting to mqtt server ${mqttClient.config.serverHost}")
                 mqttClient.connect()
             }
             widgetsWithMqttTopic.forEach { (id, _) ->
                 widgetMqttJobs[id]?.cancel()
                 getWidgetMqttTopic(id)?.let { topic ->
                     widgetMqttJobs[id] = widgetScope.launch {
+                        Timber.d("$id subscribing to topic: $topic")
                         mqttClient.subscribeWith()
                             .topicFilter(topic)
                             .qos(MqttQos.AT_LEAST_ONCE)
                             .callback { msg ->
-                                onMqttMessage(context, id, String(msg.payloadAsBytes))
+                                try {
+                                    Timber.d("$id received mqtt message ${String(msg.payloadAsBytes)}")
+                                    onMqttMessage(context, id, String(msg.payloadAsBytes))
+                                } catch (e: Exception) {
+                                    Timber.e(e)
+                                }
                             }
                             .send()
                         try {
                             awaitCancellation()
                         } finally {
+                            Timber.d("$id unsubscribing from topic: $topic")
                             mqttClient.unsubscribeWith().topicFilter(topic).send()
                         }
                     }

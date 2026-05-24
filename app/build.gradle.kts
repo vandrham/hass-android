@@ -23,6 +23,13 @@ android {
         }
     }
 
+    // exclude netty version properties file packaged with hivemq
+    packaging {
+        resources {
+            excludes += listOf("META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
+        }
+    }
+
     lint {
         // Until we fully migrate to Material3 this lint issue is too verbose https://github.com/home-assistant/android/issues/5420
         disable += listOf("UsingMaterialAndMaterial3Libraries")

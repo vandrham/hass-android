@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.provider.Settings
 import androidx.media3.datasource.DataSource
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import dagger.Binds
 import dagger.Lazy
 import dagger.Module
@@ -63,6 +64,10 @@ internal abstract class DataModule {
         @Provides
         @Singleton
         fun providesOkHttpClient(homeAssistantApis: HomeAssistantApis): OkHttpClient = homeAssistantApis.okHttpClient
+
+        @Provides
+        @Singleton
+        fun providesMqttClient(homeAssistantApis: HomeAssistantApis): Mqtt5AsyncClient = homeAssistantApis.mqttClient
 
         @Provides
         @Singleton

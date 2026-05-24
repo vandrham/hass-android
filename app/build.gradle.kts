@@ -45,6 +45,7 @@ firebaseAppDistributionDefault {
 dependencies {
     // Most of the dependencies are coming from the convention plugin to avoid duplication with `:automotive` module.
     "fullImplementation"(libs.car.projected)
+    implementation(libs.hivemq.mqtt.client)
 }
 
 // Disable to fix memory leak and be compatible with the configuration cache.

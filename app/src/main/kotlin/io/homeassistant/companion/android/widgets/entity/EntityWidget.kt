@@ -145,6 +145,9 @@ class EntityWidget : BaseWidgetProvider<StaticWidgetEntity, StaticWidgetDao>() {
     override suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>> =
         dao.getAll().associate { it.id to (it.serverId to listOf(it.entityId)) }
 
+    override suspend fun getWidgetMqttTopic(appWidgetId: Int): String? =
+        dao.get(appWidgetId)?.label //TODO: .mqttTopic
+
     private suspend fun resolveTextToShow(
         context: Context,
         serverId: Int,
@@ -217,6 +220,29 @@ class EntityWidget : BaseWidgetProvider<StaticWidgetEntity, StaticWidgetDao>() {
     override suspend fun onEntityStateChanged(context: Context, appWidgetId: Int, entity: Entity) {
         val views = getWidgetRemoteViews(context, appWidgetId, entity)
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
+    }
+
+    override fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
+        widgetScope.launch {
+            dao.updateWidgetLastUpdate(
+                appWidgetId,
+                message,
+            )
+            dao.get(appWidgetId)?.apply {
+                val useDynamicColors =
+                    backgroundType == WidgetBackgroundType.DYNAMICCOLOR && DynamicColors.isDynamicColorAvailable()
+                val views = RemoteViews(
+                    context.packageName,
+                    if (useDynamicColors) R.layout.widget_static_wrapper_dynamiccolor else R.layout.widget_static_wrapper_default,
+                ).apply {
+                    setTextViewText(
+                        R.id.widgetText,
+                        ResolvedText(message).text,
+                    )
+                }
+                AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
+            }
+        }
     }
 
     private suspend fun toggleEntity(context: Context, appWidgetId: Int) {

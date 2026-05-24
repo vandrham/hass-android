@@ -6,6 +6,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import com.hivemq.client.mqtt.datatypes.MqttQos
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import io.homeassistant.companion.android.common.data.integration.Entity
 import io.homeassistant.companion.android.common.data.servers.ServerManager
 import io.homeassistant.companion.android.common.util.FailFast
@@ -16,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -36,11 +39,15 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
         private val widgetEntities = mutableMapOf<Int, List<String>>()
         private val widgetJobs = mutableMapOf<Int, Job>()
 
+        private val widgetMqttJobs = mutableMapOf<Int, Job>()
         private fun newCoroutineScopeProvider() = CoroutineScope(Dispatchers.Default + SupervisorJob())
     }
 
     @Inject
     lateinit var serverManager: ServerManager
+
+    @Inject
+    lateinit var mqttClient: Mqtt5AsyncClient
 
     @Inject
     lateinit var dao: DAO
@@ -133,6 +140,32 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
                 }
             }
         }
+        val widgetsWithMqttTopic = allWidgets.filter { !getWidgetMqttTopic(it.key).isNullOrEmpty() }
+        if (widgetsWithMqttTopic.isNotEmpty()) {
+            if (!mqttClient.state.isConnectedOrReconnect) {
+                mqttClient.connect()
+            }
+            widgetsWithMqttTopic.forEach { (id, _) ->
+                widgetMqttJobs[id]?.cancel()
+                getWidgetMqttTopic(id)?.let { topic ->
+                    widgetMqttJobs[id] = widgetScope.launch {
+                        mqttClient.subscribeWith()
+                            .topicFilter(topic)
+                            .qos(MqttQos.AT_LEAST_ONCE)
+                            .callback { msg ->
+                                onMqttMessage(context, id, String(msg.payloadAsBytes))
+                            }
+                            .send()
+                        try {
+                            awaitCancellation()
+                        } finally {
+                            mqttClient.unsubscribeWith().topicFilter(topic).send()
+                        }
+                    }
+                }
+
+            }
+        }
     }
 
     private fun onScreenOff() {
@@ -143,6 +176,7 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
         }
         widgetEntities.clear()
         widgetJobs.clear()
+        widgetMqttJobs.clear()
     }
 
     private suspend fun updateAllWidgets(context: Context) {
@@ -177,6 +211,8 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
         widgetEntities.remove(appWidgetId)
         widgetJobs[appWidgetId]?.cancel()
         widgetJobs.remove(appWidgetId)
+        widgetMqttJobs[appWidgetId]?.cancel()
+        widgetMqttJobs.remove(appWidgetId)
     }
 
     abstract fun getWidgetProvider(context: Context): ComponentName
@@ -186,7 +222,11 @@ abstract class BaseWidgetProvider<T : WidgetEntity<T>, DAO : WidgetDao<T>> : App
         suggestedEntity: Entity? = null,
     ): RemoteViews
 
+    open suspend fun getWidgetMqttTopic(appWidgetId: Int): String? = null
+
     // A map of widget IDs to [server ID, list of entity IDs]
     abstract suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>>
     abstract suspend fun onEntityStateChanged(context: Context, appWidgetId: Int, entity: Entity)
+
+    open fun onMqttMessage(context: Context, appWidgetId: Int, message: String) { }
 }

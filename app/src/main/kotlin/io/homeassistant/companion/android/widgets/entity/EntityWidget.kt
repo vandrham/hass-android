@@ -13,6 +13,8 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import com.google.android.material.color.DynamicColors
+import com.hivemq.client.mqtt.datatypes.MqttQos
+import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
 import dagger.hilt.android.AndroidEntryPoint
 import io.homeassistant.companion.android.R
 import io.homeassistant.companion.android.common.R as commonR
@@ -26,8 +28,17 @@ import io.homeassistant.companion.android.database.widget.WidgetBackgroundType
 import io.homeassistant.companion.android.database.widget.WidgetTapAction
 import io.homeassistant.companion.android.util.getAttribute
 import io.homeassistant.companion.android.widgets.BaseWidgetProvider
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.future.await
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -40,9 +51,121 @@ class EntityWidget : BaseWidgetProvider<StaticWidgetEntity, StaticWidgetDao>() {
             "io.homeassistant.companion.android.widgets.entity.EntityWidget.TOGGLE_ENTITY"
 
         private data class ResolvedText(val text: CharSequence?, val error: Boolean = false)
+
+        private var widgetIOScope: CoroutineScope = newCoroutineIOScopeProvider()
+
+        private val widgetMqttJobs = mutableMapOf<Int, Job>()
+
+        private fun newCoroutineIOScopeProvider() = CoroutineScope(Dispatchers.IO + SupervisorJob())
     }
 
+    @Inject
+    lateinit var mqttClient: Mqtt5AsyncClient
+
+    private val widgetIOScope
+        get() = Companion.widgetIOScope
+
+    init {
+        setupWidgetScope()
+    }
+
+    private fun setupWidgetScope() {
+        if (!widgetIOScope.isActive) {
+            Companion.widgetIOScope = newCoroutineIOScopeProvider()
+        }
+    }
+
+
     override fun getWidgetProvider(context: Context): ComponentName = ComponentName(context, EntityWidget::class.java)
+
+    override suspend fun onScreenOn(context: Context) {
+        Timber.d("onScreenOn")
+        super.onScreenOn(context)
+
+        val allWidgets = getAllWidgetIdsWithEntities(context)
+        val widgetsWithMqttTopic = allWidgets.filter { !getWidgetMqttTopic(it.key).isNullOrEmpty() }
+        Timber.d("found ${widgetsWithMqttTopic.size} mqtt widget(s)")
+        if (widgetsWithMqttTopic.isNotEmpty()) {
+            Timber.d("checking if mqtt is connected")
+            if (!mqttClient.state.isConnected) {
+                Timber.d("no.. connecting to mqtt server ${mqttClient.config.serverHost}")
+                mqttClient.connect().await()
+            } else {
+                Timber.d("yes")
+            }
+            Timber.d("connected: ${mqttClient.state.isConnected}")
+
+            widgetsWithMqttTopic.forEach { (id, _) ->
+                widgetMqttJobs[id]?.cancel()
+                getWidgetMqttTopic(id)?.let { topic ->
+                    widgetMqttJobs[id] = widgetIOScope.launch {
+                        Timber.d("[$id] subscribing to topic: $topic")
+                        mqttClient.subscribeWith()
+                            .topicFilter(topic)
+                            .qos(MqttQos.AT_LEAST_ONCE)
+                            .callback { msg ->
+                                try {
+                                    Timber.d("[$id] received mqtt message ${String(msg.payloadAsBytes)}")
+                                    onMqttMessage(context, id, String(msg.payloadAsBytes))
+                                } catch (e: Exception) {
+                                    Timber.e(e)
+                                }
+                            }
+                            .send()
+                            .await()
+                        try {
+                            while (isActive) {
+                                Timber.d("[$id] waiting for mqtt messages")
+                                delay(5000)
+                            }
+                            awaitCancellation()
+                        } finally {
+                            Timber.d("[$id] thread cancelled, bye")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun getWidgetMqttTopic(appWidgetId: Int): String? {
+        return dao.get(appWidgetId)?.let { widget ->
+            val entity = serverManager.integrationRepository(widget.serverId).getEntity(widget.entityId)
+            return entity?.attributes?.get("mqtt_topic") as? String
+        }
+    }
+
+    private fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
+        widgetScope.launch {
+            dao.updateWidgetLastUpdate(
+                appWidgetId,
+                message,
+            )
+            dao.get(appWidgetId)?.apply {
+                val useDynamicColors =
+                    backgroundType == WidgetBackgroundType.DYNAMICCOLOR && DynamicColors.isDynamicColorAvailable()
+                val views = RemoteViews(
+                    context.packageName,
+                    if (useDynamicColors) R.layout.widget_static_wrapper_dynamiccolor else R.layout.widget_static_wrapper_default,
+                ).apply {
+                    setTextViewText(
+                        R.id.widgetText,
+                        ResolvedText(message).text,
+                    )
+                }
+                AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
+            }
+        }
+    }
+
+    override fun onScreenOff() {
+        try {
+            widgetIOScope.cancel()
+        } catch (e: IllegalStateException) {
+            Timber.w(e, "Calling onScreenOff without any job started")
+        }
+        super.onScreenOff()
+    }
 
     override suspend fun getWidgetRemoteViews(
         context: Context,
@@ -145,9 +268,6 @@ class EntityWidget : BaseWidgetProvider<StaticWidgetEntity, StaticWidgetDao>() {
     override suspend fun getAllWidgetIdsWithEntities(context: Context): Map<Int, Pair<Int, List<String>>> =
         dao.getAll().associate { it.id to (it.serverId to listOf(it.entityId)) }
 
-    override suspend fun getWidgetMqttTopic(appWidgetId: Int): String? =
-        dao.get(appWidgetId)?.label //TODO: .mqttTopic
-
     private suspend fun resolveTextToShow(
         context: Context,
         serverId: Int,
@@ -220,29 +340,6 @@ class EntityWidget : BaseWidgetProvider<StaticWidgetEntity, StaticWidgetDao>() {
     override suspend fun onEntityStateChanged(context: Context, appWidgetId: Int, entity: Entity) {
         val views = getWidgetRemoteViews(context, appWidgetId, entity)
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
-    }
-
-    override fun onMqttMessage(context: Context, appWidgetId: Int, message: String) {
-        widgetScope.launch {
-            dao.updateWidgetLastUpdate(
-                appWidgetId,
-                message,
-            )
-            dao.get(appWidgetId)?.apply {
-                val useDynamicColors =
-                    backgroundType == WidgetBackgroundType.DYNAMICCOLOR && DynamicColors.isDynamicColorAvailable()
-                val views = RemoteViews(
-                    context.packageName,
-                    if (useDynamicColors) R.layout.widget_static_wrapper_dynamiccolor else R.layout.widget_static_wrapper_default,
-                ).apply {
-                    setTextViewText(
-                        R.id.widgetText,
-                        ResolvedText(message).text,
-                    )
-                }
-                AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(appWidgetId, views)
-            }
-        }
     }
 
     private suspend fun toggleEntity(context: Context, appWidgetId: Int) {

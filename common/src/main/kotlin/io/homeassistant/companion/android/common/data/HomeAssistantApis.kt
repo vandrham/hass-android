@@ -103,7 +103,6 @@ class HomeAssistantApis @Inject constructor(
         .identifier(UUID.randomUUID().toString())
         .serverHost(BuildConfig.MQTT_BROKER)
         .serverPort(BuildConfig.MQTT_PORT)
-        .automaticReconnectWithDefaultConfig()
         .apply {
             if (BuildConfig.MQTT_USERNAME.isNotEmpty() && BuildConfig.MQTT_PASSWORD.isNotEmpty()) {
                 simpleAuth()
